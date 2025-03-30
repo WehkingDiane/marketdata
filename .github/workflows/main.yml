@@ -7,7 +7,7 @@ on:
 
 jobs:
   fetch-and-store:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Repository auschecken
