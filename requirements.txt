@@ -1,0 +1,2 @@
+twelvedata
+firebase-admin
