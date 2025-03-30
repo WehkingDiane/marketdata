@@ -7,7 +7,7 @@ on:
 
 jobs:
   fetch-and-store:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Repository auschecken
@@ -30,7 +30,7 @@ jobs:
         run: python main.py
 
       - name: Ergebnis als Artifact speichern
-        uses: actions/upload-artifact@v3.1.2
+        uses: actions/upload-artifact@v4
         with:
           name: marketdata-json
           path: '*.json'
