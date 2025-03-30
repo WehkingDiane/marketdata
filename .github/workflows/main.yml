@@ -1,31 +1,36 @@
 name: Fetch and Store Market Data
 
-on: schedule: - cron: '*/15 * * * 1-5'  # Alle 15 Minuten, Montag bis Freitag workflow_dispatch:         # Manuelles Starten zulassen
+on:
+  schedule:
+    - cron: '*/15 * * * 1-5'
+  workflow_dispatch:
 
-jobs: fetch-and-store: runs-on: ubuntu-latest
+jobs:
+  fetch-and-store:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Repository auschecken
-    uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  - name: Python einrichten
-    uses: actions/setup-python@v4
-    with:
-      python-version: 3.11
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-  - name: Abhängigkeiten installieren
-    run: |
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-  - name: Skript ausführen
-    env:
-      TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
-      FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
-    run: python main.py
+      - name: Run script
+        env:
+          TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+        run: python main.py
 
-  - name: Ergebnis als Artifact speichern
-    uses: actions/upload-artifact@v3
-    with:
-      name: marketdata-json
-      path: '*.json'
+      - name: Upload JSON result
+        uses: actions/upload-artifact@v3
+        with:
+          name: marketdata-json
+          path: '*.json'
