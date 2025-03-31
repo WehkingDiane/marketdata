@@ -2,7 +2,7 @@ name: Fetch and Store Market Data
 
 on:
   schedule:
-    - cron: '*/15 * * * 1-5'  # Alle 15 Minuten, Montag bis Freitag
+    - cron: '*/15 12-21 * * 1-5'  # Alle 15 Minuten, Montag bis Freitag
   workflow_dispatch:          # Manuelles Starten über GitHub UI
 
 jobs:
