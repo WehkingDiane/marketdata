@@ -27,6 +27,7 @@ jobs:
         env:
           TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
           FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
         run: python main.py
 
       - name: Ergebnis als Artifact speichern
