@@ -1,30 +1,32 @@
 import os
 import json
 from datetime import datetime, timedelta
+import pytz
 from twelvedata import TDClient
 import firebase_admin
 from firebase_admin import credentials, db
 
-# 1. Aktuelles Datum und Uhrzeit ermitteln (UTC)
-now = datetime.utcnow()
-date_str = now.strftime("%Y%m%d_%H%M")
-hour = now.hour
-minute = now.minute
+# 1. Aktuelle Uhrzeit in New Yorker Börsenzeit (EDT/EST)
+ny_tz = pytz.timezone("America/New_York")
+now_ny = datetime.now(ny_tz)
+date_str = now_ny.strftime("%Y%m%d_%H%M")
+hour = now_ny.hour
+minute = now_ny.minute
 
-# 2. Zeitfenster: 15:45 bis 21:45 UTC und nur werktags (Mo–Fr)
+# 2. Zeitfenster prüfen: 09:45 – 15:45 (New Yorker Zeit), nur werktags (Mo–Fr)
 total_minutes = hour * 60 + minute
 
-if now.weekday() >= 5:
+if now_ny.weekday() >= 5:
     print("Heute ist Wochenende. Abbruch.")
     exit(0)
 
-if total_minutes < (15 * 60 + 45) or total_minutes > (21 * 60 + 45):
-    print("Außerhalb des Zeitfensters (15:45 - 21:45 UTC). Abbruch.")
+if total_minutes < (9 * 60 + 45) or total_minutes > (15 * 60 + 45):
+    print("Außerhalb des Börsen-Zeitfensters (09:45 - 15:45 NY-Zeit). Abbruch.")
     exit(0)
 
-# 3. Zeitspanne der letzten 15 Minuten berechnen
-end_time = now
-start_time = now - timedelta(minutes=15)
+# 3. Zeitraum der letzten 15 Minuten berechnen (New Yorker Zeit)
+end_time = now_ny
+start_time = now_ny - timedelta(minutes=15)
 
 start_date = start_time.strftime("%Y-%m-%d %H:%M:%S")
 end_date = end_time.strftime("%Y-%m-%d %H:%M:%S")
