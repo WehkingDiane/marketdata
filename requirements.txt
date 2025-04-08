@@ -3,3 +3,4 @@ firebase-admin
 pytz
 pandas
 pandas_ta
+numpy==1.24.4
