@@ -26,7 +26,7 @@ if total_minutes < (9 * 60 + 45) or total_minutes > (15 * 60 + 45):
 
 # 3. Zeitraum der letzten 15 Minuten berechnen (New Yorker Zeit)
 end_time = now_ny
-start_time = now_ny - timedelta(minutes=15)
+start_time = now_ny - timedelta(minutes=17)
 
 start_date = start_time.strftime("%Y-%m-%d %H:%M:%S")
 end_date = end_time.strftime("%Y-%m-%d %H:%M:%S")
