@@ -5,6 +5,7 @@ import pytz
 from twelvedata import TDClient
 import firebase_admin
 from firebase_admin import credentials, db
+from strategy_ema_rsi import analyze
 
 # 1. Aktuelle Uhrzeit in New Yorker Börsenzeit (EDT/EST)
 ny_tz = pytz.timezone("America/New_York")
@@ -24,10 +25,9 @@ if total_minutes < (9 * 60 + 45) or total_minutes > (15 * 60 + 45):
     print("Außerhalb des Börsen-Zeitfensters (09:45 - 15:45 NY-Zeit). Abbruch.")
     exit(0)
 
-# 3. Zeitraum der letzten 15 Minuten berechnen (New Yorker Zeit)
+# 3. Zeitraum der letzten 17 Minuten berechnen
 end_time = now_ny
 start_time = now_ny - timedelta(minutes=17)
-
 start_date = start_time.strftime("%Y-%m-%d %H:%M:%S")
 end_date = end_time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -53,7 +53,7 @@ try:
         json.dump(response, f, indent=4)
     print(f"Datei gespeichert: {filename}")
 
-    # 6. Firebase vorbereiten und hochladen
+    # 6. Firebase vorbereiten
     firebase_key = json.loads(os.environ["FIREBASE_KEY"])
     firebase_url = os.environ["FIREBASE_DB_URL"]
 
@@ -62,9 +62,20 @@ try:
         'databaseURL': firebase_url
     })
 
+    # 7. Kursdaten in Firebase speichern
     ref = db.reference(f"/marketdata/NVDA/{date_str}")
     ref.set(response)
-    print("Daten wurden in Firebase gespeichert.")
+    print("Kursdaten wurden in Firebase gespeichert.")
+
+    # 8. Analyse durchführen und bei Signal auch speichern
+    signal = analyze(response)
+    if signal:
+        print(f"Signal erkannt: {signal}")
+        signal_ref = db.reference(f"/signals/NVDA/{signal['timestamp']}")
+        signal_ref.set(signal)
+        print("Signal wurde in Firebase gespeichert.")
+    else:
+        print("Kein Signal erkannt.")
 
 except Exception as e:
     print("Fehler beim Abruf oder Firebase-Zugriff:", e)
