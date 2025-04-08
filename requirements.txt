@@ -1,3 +1,5 @@
 twelvedata
 firebase-admin
 pytz
+pandas
+pandas_ta
