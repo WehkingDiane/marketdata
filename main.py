@@ -8,7 +8,7 @@ from firebase_admin import credentials, db
 
 # 1. Aktuelle Uhrzeit in New Yorker Börsenzeit (EDT/EST)
 ny_tz = pytz.timezone("America/New_York")
-now_ny = datetime.now(ny_tz)
+now_ny = datetime.now(ny_tz).replace(second=0, microsecond=0)
 date_str = now_ny.strftime("%Y%m%d_%H%M")
 hour = now_ny.hour
 minute = now_ny.minute
