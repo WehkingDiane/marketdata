@@ -7,6 +7,8 @@ import firebase_admin
 from firebase_admin import credentials, db
 from strategy_ema_rsi import analyze
 
+ENABLE_ANALYZE = FALSE
+
 # 1. Aktuelle Uhrzeit in New Yorker Börsenzeit (EDT/EST)
 ny_tz = pytz.timezone("America/New_York")
 now_ny = datetime.now(ny_tz).replace(second=0, microsecond=0)
@@ -68,14 +70,15 @@ try:
     print("Kursdaten wurden in Firebase gespeichert.")
 
     # 8. Analyse durchführen und bei Signal auch speichern
-    signal = analyze(response)
-    if signal:
-        print(f"Signal erkannt: {signal}")
-        signal_ref = db.reference(f"/signals/NVDA/{signal['timestamp']}")
-        signal_ref.set(signal)
-        print("Signal wurde in Firebase gespeichert.")
-    else:
-        print("Kein Signal erkannt.")
+    if ENABLE_ANALYZE:
+        signal = analyze(response)
+        if signal:
+            print(f"Signal erkannt: {signal}")
+            signal_ref = db.reference(f"/signals/NVDA/{signal['timestamp']}")
+            signal_ref.set(signal)
+            print("Signal wurde in Firebase gespeichert.")
+        else:
+            print("Kein Signal erkannt.")
 
 except Exception as e:
     print("Fehler beim Abruf oder Firebase-Zugriff:", e)
