@@ -1,0 +1,33 @@
+name: Analyze and Notify Signal
+
+on:
+  schedule:
+    # Alle 15 Minuten während der US-Handelszeiten (NY-Zeit = UTC-4 im Sommer)
+    - cron: '*/15 13-21 * * 1-5'  # 13–21 UTC = 09:00–17:00 NY
+  workflow_dispatch:
+
+jobs:
+  analyze-signal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests firebase-admin
+
+      - name: Run signal analysis
+        env:
+          TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+          FCM_TOKEN: ${{ secrets.FCM_TOKEN }}
+        run: python analyze_with_api.py
