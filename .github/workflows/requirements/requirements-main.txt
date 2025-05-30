@@ -1,0 +1,6 @@
+numpy
+twelvedata
+firebase-admin
+pytz
+pandas
+ta-lib-everywhere
