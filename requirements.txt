@@ -3,5 +3,6 @@ firebase-admin
 pytz
 pandas
 ta-lib
+ta-lib-everywhere
 numpy==1.24.4
 pyproject.toml
