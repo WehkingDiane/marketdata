@@ -7,7 +7,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 from strategy_ema_rsi import analyze
 
-ENABLE_ANALYZE = FALSE
+ENABLE_ANALYZE = False
 
 # 1. Aktuelle Uhrzeit in New Yorker Börsenzeit (EDT/EST)
 ny_tz = pytz.timezone("America/New_York")
