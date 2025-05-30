@@ -1,5 +1,5 @@
 import pandas as pd
-import pandas_ta as ta
+import talib as ta
 from typing import List, Dict, Optional
 from datetime import datetime
 def analyze(candles: List[Dict]) -> Optional[Dict]:
@@ -8,9 +8,9 @@ def analyze(candles: List[Dict]) -> Optional[Dict]:
     df.set_index('datetime', inplace=True)
     df[['open', 'high', 'low', 'close', 'volume']] = df[['open', 'high', 'low', 'close', 'volume']].astype(float)
     # Technische Indikatoren berechnen
-    df['EMA9'] = ta.ema(df['close'], length=9)
-    df['EMA21'] = ta.ema(df['close'], length=21)
-    df['RSI14'] = ta.rsi(df['close'], length=14)
+    df['EMA9'] = ta.EMA(df['close'], timeperiod=9)
+    df['EMA21'] = ta.EMA(df['close'], timeperiod=21)
+    df['RSI14'] = ta.RSI(df['close'], timeperiod=14)
     if len(df) < 21:
         return None  # Nicht genug Daten
     last = df.iloc[-1]
