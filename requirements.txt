@@ -1,8 +1,8 @@
 twelvedata
 firebase-admin
 pytz
+numpy==1.24.4
 pandas
 ta-lib
 ta-lib-everywhere
-numpy==1.24.4
 pyproject.toml
