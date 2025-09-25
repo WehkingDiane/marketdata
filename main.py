@@ -37,7 +37,7 @@ end_date = end_time.strftime("%Y-%m-%d %H:%M:%S")
 api_key = os.environ["TWELVE_API_KEY"]
 td = TDClient(apikey=api_key)
 
-symbols = ["NVDA","TSM"]
+symbols = ["NVDA","TSM","WMT","AMZN"]
 
 try:
     # 5. Firebase vorbereiten
