@@ -1,10 +1,11 @@
 name: Analyze and Notify Signal
 
 on:
-  schedule:
+  # disable the workflow
+  #schedule:
     # Alle 15 Minuten während der US-Handelszeiten (NY-Zeit = UTC-4 im Sommer)
-    - cron: '*/15 13-21 * * 1-5'  # 13–21 UTC = 09:00–17:00 NY
-  workflow_dispatch:
+   # - cron: '*/15 13-21 * * 1-5'  # 13–21 UTC = 09:00–17:00 NY
+  #workflow_dispatch:
 
 jobs:
   analyze-signal:
