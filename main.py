@@ -1,100 +1,144 @@
-import os
+"""Script zum Abrufen und Speichern von Kursdaten bei Twelve Data und Firebase."""
+
 import json
+import os
+import sys
 from datetime import datetime, timedelta
-import pytz
-from twelvedata import TDClient
+from typing import Any, Dict, Iterable, Sequence
+
 import firebase_admin
+import pytz
 from firebase_admin import credentials, db
-#from old.strategy_ema_rsi import analyze
+from twelvedata import TDClient
 
-#ENABLE_ANALYZE = False
 
-# 1. Aktuelle Uhrzeit in New Yorker Börsenzeit (EDT/EST)
-ny_tz = pytz.timezone("America/New_York")
-now_ny = datetime.now(ny_tz).replace(second=0, microsecond=0)
-date_str = now_ny.strftime("%Y%m%d_%H%M")
-hour = now_ny.hour
-minute = now_ny.minute
+SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
+NY_TZ = pytz.timezone("America/New_York")
+MARKET_OPEN_MINUTE = 9 * 60 + 45
+MARKET_CLOSE_MINUTE = 15 * 60 + 45
 
-# 2. Zeitfenster prüfen: 09:45 – 15:45 (New Yorker Zeit), nur werktags (Mo–Fr)
-total_minutes = hour * 60 + minute
 
-if now_ny.weekday() >= 5:
-    print("Heute ist Wochenende. Abbruch.")
-    exit(0)
+def _require_env_var(name: str) -> str:
+    """Gibt den Inhalt einer Umgebungsvariable zurück oder beendet das Programm."""
 
-if total_minutes < (9 * 60 + 45) or total_minutes > (15 * 60 + 45):
-    print("Außerhalb des Börsen-Zeitfensters (09:45 - 15:45 NY-Zeit). Abbruch.")
-    exit(0)
+    value = os.environ.get(name)
+    if not value:
+        print(f"Erwartete Umgebungsvariable '{name}' ist nicht gesetzt.")
+        sys.exit(1)
+    return value
 
-# 3. Zeitraum der letzten 17 Minuten berechnen
-end_time = now_ny
-start_time = now_ny - timedelta(minutes=17)
-start_date = start_time.strftime("%Y-%m-%d %H:%M:%S")
-end_date = end_time.strftime("%Y-%m-%d %H:%M:%S")
 
-# 4. Twelve Data API aufrufen
-api_key = os.environ["TWELVE_API_KEY"]
-td = TDClient(apikey=api_key)
+def _within_trading_window(now: datetime) -> bool:
+    """Prüft, ob wir uns innerhalb des Handelsfensters befinden."""
 
-symbols = ["NVDA","TSM","WMT","AMZN"]
+    if now.weekday() >= 5:
+        print("Heute ist Wochenende. Abbruch.")
+        return False
 
-try:
-    # 5. Firebase vorbereiten
-    firebase_key = json.loads(os.environ["FIREBASE_KEY"])
-    firebase_url = os.environ["FIREBASE_DB_URL"]
+    total_minutes = now.hour * 60 + now.minute
+    if not (MARKET_OPEN_MINUTE <= total_minutes <= MARKET_CLOSE_MINUTE):
+        print("Außerhalb des Börsen-Zeitfensters (09:45 - 15:45 NY-Zeit). Abbruch.")
+        return False
+    return True
 
-    cred = credentials.Certificate(firebase_key)
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': firebase_url
-    })
-    for symbol in symbols:
-        print(f"Abruf der Kursdaten für {symbol} von {start_date} bis {end_date}...")
-        response = td.time_series(
-            symbol=symbol,
-            interval="1min",
-            start_date=start_date,
-            end_date=end_date
-        ).as_json()
-        # Twelve Data kann bei fehlenden Kursdaten ein leeres Tuple zurückgeben.
-        if isinstance(response, (list, tuple)) and len(response) == 0:
-            print("Keine Kursdaten vom API erhalten (leere Antwort).")
-            exit(0)
 
-        if isinstance(response, dict) and "status" in response:
+def _is_error_response(response: Any) -> bool:
+    """Bewertet, ob die Antwort der Twelve-Data-API einen Fehler enthält."""
+
+    if isinstance(response, dict) and "status" in response:
+        status = response.get("status")
+        # Die API liefert "error" bei Fehlschlägen, andere Stati bleiben aber erhalten.
+        if status and status.lower() != "ok":
             print("API-Fehlermeldung:", response.get("message", "Unbekannter Fehler"))
-            exit(0)
+            return True
+    return False
+
+
+def _normalize_response(response: Any) -> Iterable[Dict[str, Any]]:
+    """Stellt sicher, dass eine iterierbare Antwort zurückgegeben wird."""
+
+    if isinstance(response, (list, tuple)):
+        return response
+    if isinstance(response, dict) and "values" in response:
+        return response["values"]
+    return []
+
+
+def _initialize_firebase() -> None:
+    """Initialisiert den Firebase-Client genau einmal."""
+
+    firebase_key = json.loads(_require_env_var("FIREBASE_KEY"))
+    firebase_url = _require_env_var("FIREBASE_DB_URL")
+
+    if not firebase_admin._apps:  # type: ignore[attr-defined]
+        cred = credentials.Certificate(firebase_key)
+        firebase_admin.initialize_app(cred, {"databaseURL": firebase_url})
+
+
+def _store_locally(symbol: str, date_str: str, payload: Any) -> None:
+    filename = f"{symbol}_{date_str}.json"
+    with open(filename, "w", encoding="utf-8") as file:
+        json.dump(payload, file, indent=4)
+    print(f"Datei gespeichert: {filename}")
+
+
+def _store_in_firebase(symbol: str, date_str: str, payload: Any) -> None:
+    ref = db.reference(f"/marketdata/{symbol}/{date_str}")
+    ref.set(payload)
+    print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
+
+
+def main() -> None:
+    now_ny = datetime.now(NY_TZ).replace(second=0, microsecond=0)
+    date_str = now_ny.strftime("%Y%m%d_%H%M")
+
+    if not _within_trading_window(now_ny):
+        sys.exit(0)
+
+    start_time = now_ny - timedelta(minutes=17)
+    start_date = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    end_date = now_ny.strftime("%Y-%m-%d %H:%M:%S")
+
+    td = TDClient(apikey=_require_env_var("TWELVE_API_KEY"))
+
+    try:
+        _initialize_firebase()
+    except Exception as exc:  # pragma: no cover - defensive logging
+        print("Firebase konnte nicht initialisiert werden:", exc)
+        sys.exit(1)
+
+    for symbol in SYMBOLS:
+        print(f"Abruf der Kursdaten für {symbol} von {start_date} bis {end_date}...")
+        try:
+            response = td.time_series(
+                symbol=symbol,
+                interval="1min",
+                start_date=start_date,
+                end_date=end_date,
+            ).as_json()
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"Fehler beim Abruf der Kursdaten für {symbol}:", exc)
+            continue
 
         if not response:
             print("Unerwartete leere Antwort vom API.")
-            exit(0)
-
-        if not response or isinstance(response, dict) and "status" in response:
-            print(f"Keine Daten verfügbar oder API-Fehlermeldung für {symbol}:", response.get("message", "Unbekannter Fehler"))
             continue
 
-        # 6. JSON-Datei lokal speichern
-        filename = f"{symbol}_{date_str}.json"
-        with open(filename, "w") as f:
-            json.dump(response, f, indent=4)
-        print(f"Datei gespeichert: {filename}")
+        if _is_error_response(response):
+            continue
 
-        # 7. Kursdaten in Firebase speichern
-        ref = db.reference(f"/marketdata/{symbol}/{date_str}")
-        ref.set(response)
-        print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
+        normalized = list(_normalize_response(response))
+        if not normalized:
+            print("Keine Kursdaten vom API erhalten (leere Antwort).")
+            continue
 
-        #8. Analyse durchführen und bei Signal auch speichern
-        # if ENABLE_ANALYZE:
-        #    signal = analyze(response)
-        #    if signal:
-        #        print(f"Signal erkannt für {symbol}: {signal}")
-        #        signal_ref = db.reference(f"/signals/{symbol}/{signal['timestamp']}")
-        #        signal_ref.set(signal)
-        #        print("Signal wurde in Firebase gespeichert.")
-        #    else:
-        #        print(f"Kein Signal erkannt für {symbol}.")
+        _store_locally(symbol, date_str, response)
+        _store_in_firebase(symbol, date_str, response)
 
-except Exception as e:
-    print("Fehler beim Abruf oder Firebase-Zugriff:", e)
-    exit(1)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Abbruch durch Benutzer.")
+        sys.exit(1)
