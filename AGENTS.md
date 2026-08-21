@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository is a small Python 3.11 market-data ingestion service. `main.py` contains the application flow, Twelve Data API calls, trading-window checks, local JSON export, and Firebase writes. Runtime dependencies are listed in `requirements.txt`; known-good versions are recorded in `docs/tested_versions.md`. Automation lives in `.github/workflows/main.yml`, with workflow-specific packages under `.github/workflows/requirements/`. Root-level `firebase.json` and `.firebaserc` hold Firebase project configuration. Generated files such as `NVDA_20260821_1545.json` are runtime artifacts and should not be committed.
+This repository is a small Python 3.11 market-data ingestion service. `main.py` contains the application flow, Twelve Data API calls, trading-window checks, local JSON export, and Firebase writes. Runtime dependencies are listed in the shared root `requirements.txt`; known-good versions are recorded in `docs/tested_versions.md`. Automation lives in `.github/workflows/main.yml`. Root-level `firebase.json` and `.firebaserc` hold Firebase project configuration. Generated files such as `NVDA_20260821_1545.json` are runtime artifacts and should not be committed.
 
 ## Setup, Run, and Validation Commands
 

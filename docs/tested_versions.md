@@ -13,15 +13,10 @@ Stand: 21. August 2026
 | Python | 3.11 | 3.12.3 |
 | `twelvedata` | nicht separat geprüft | 1.4.0 |
 | `firebase-admin` | nicht separat geprüft | 7.5.0 |
-| `pytz` | nicht separat geprüft | 2026.3.post1 |
-| `numpy` | nicht separat geprüft | 2.5.2 |
-| `pandas` | nicht separat geprüft | 3.0.5 |
-| `ta-lib-everywhere` | nicht separat geprüft | 1.0.1 |
-| `TA-Lib` | transitiv installiert | 0.7.1 |
-
-`numpy`, `pandas` und `ta-lib-everywhere` stehen nur in den Workflow-
-Requirements und werden von `main.py` derzeit nicht importiert. `TA-Lib` ist
-die von `ta-lib-everywhere` installierte und als `talib` importierte Bibliothek.
+| `holidays` | nicht separat geprüft | 0.103 |
+| `requests` | nicht separat geprüft | 2.34.2 |
+| `zoneinfo` | Python-Standardbibliothek | Python-Standardbibliothek |
+| `tzdata` | nicht separat geprüft | 2026.3 |
 
 ### Ausführungsumgebung
 
@@ -49,8 +44,8 @@ Diff wurden lokal strukturell geprüft. Nach dem nächsten erfolgreichen Lauf
 sollte der Prüfstatus in dieser Tabelle auf `Workflow erfolgreich` gesetzt
 werden.
 
-Lokal wurden alle Pakete aus den Workflow-Requirements installiert und ihre
-relevanten Importpfade geprüft. Zusätzlich wurden die Unit-Tests mit
+Lokal wurden alle Pakete aus `requirements.txt` installiert und ihre relevanten
+Importpfade geprüft. Zusätzlich wurden die Unit-Tests mit
 `python -m unittest discover -s tests -v` ausgeführt und `main.py` mit
 `python -m compileall -q main.py` geprüft. Live-Aufrufe gegen Twelve Data und
 Firebase gehören nicht zu diesem Kompatibilitätstest, damit keine API-Credits

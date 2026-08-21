@@ -6,20 +6,40 @@ import sys
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, Sequence
+from zoneinfo import ZoneInfo
 
 import firebase_admin
-import pytz
-from firebase_admin import credentials, db
+from holidays import financial_holidays
+from firebase_admin import credentials, db, exceptions as firebase_exceptions
+from requests.exceptions import RequestException
 from twelvedata import TDClient
-from twelvedata.exceptions import BadRequestError, InvalidApiKeyError
+from twelvedata.exceptions import (
+    InternalServerError,
+    TwelveDataError,
+)
 
 
 SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
-NY_TZ = pytz.timezone("America/New_York")
+NY_TZ = ZoneInfo("America/New_York")
+NYSE_HOLIDAYS = financial_holidays("XNYS")
 MARKET_OPEN_MINUTE = 9 * 60 + 45
 MARKET_CLOSE_MINUTE = 15 * 60 + 45
-MAX_FETCH_ATTEMPTS = 3
+MAX_RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 2
+FIREBASE_TRANSIENT_ERRORS = (
+    firebase_exceptions.DeadlineExceededError,
+    firebase_exceptions.InternalError,
+    firebase_exceptions.ResourceExhaustedError,
+    firebase_exceptions.UnavailableError,
+    firebase_exceptions.UnknownError,
+    RequestException,
+)
+TWELVE_DATA_RATE_LIMIT_MARKERS = (
+    "429",
+    "api credits",
+    "rate limit",
+    "too many requests",
+)
 
 
 def _require_env_var(name: str) -> str:
@@ -37,6 +57,11 @@ def _within_trading_window(now: datetime) -> bool:
 
     if now.weekday() >= 5:
         print("Heute ist Wochenende. Abbruch.")
+        return False
+
+    if not NYSE_HOLIDAYS.is_working_day(now.date()):
+        holiday_name = NYSE_HOLIDAYS.get(now.date(), "NYSE-Börsenfeiertag")
+        print(f"NYSE geschlossen ({holiday_name}). Abbruch.")
         return False
 
     total_minutes = now.hour * 60 + now.minute
@@ -92,8 +117,22 @@ def _store_locally(symbol: str, date_str: str, payload: Any) -> None:
 
 def _store_in_firebase(symbol: str, date_str: str, payload: Any) -> None:
     ref = db.reference(f"/marketdata/{symbol}/{date_str}")
-    ref.set(payload)
-    print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
+
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        try:
+            ref.set(payload)
+            print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
+            return
+        except FIREBASE_TRANSIENT_ERRORS as exc:
+            if attempt == MAX_RETRY_ATTEMPTS:
+                raise
+
+            delay = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(
+                f"Temporärer Firebase-Fehler für {symbol}; neuer Versuch in "
+                f"{delay} Sekunden ({attempt + 1}/{MAX_RETRY_ATTEMPTS}): {exc}"
+            )
+            time.sleep(delay)
 
 
 def _fetch_time_series(
@@ -101,7 +140,7 @@ def _fetch_time_series(
 ) -> Any:
     """Ruft Kursdaten ab und wiederholt ausschließlich potenziell temporäre Fehler."""
 
-    for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
         try:
             return td.time_series(
                 symbol=symbol,
@@ -110,20 +149,31 @@ def _fetch_time_series(
                 end_date=end_date,
                 timezone="America/New_York",
             ).as_json()
-        except (BadRequestError, InvalidApiKeyError):
-            raise
         except Exception as exc:
-            if attempt == MAX_FETCH_ATTEMPTS:
+            if not _is_transient_twelve_data_error(exc):
+                raise
+            if attempt == MAX_RETRY_ATTEMPTS:
                 raise
 
             delay = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
             print(
                 f"Temporärer Fehler für {symbol}; neuer Versuch in {delay} "
-                f"Sekunden ({attempt + 1}/{MAX_FETCH_ATTEMPTS}): {exc}"
+                f"Sekunden ({attempt + 1}/{MAX_RETRY_ATTEMPTS}): {exc}"
             )
             time.sleep(delay)
 
     raise RuntimeError("Unerreichbarer Zustand beim Abruf der Kursdaten")
+
+
+def _is_transient_twelve_data_error(exc: Exception) -> bool:
+    """Erkennt Netzwerk-, Server- und Rate-Limit-Fehler von Twelve Data."""
+
+    if isinstance(exc, (RequestException, InternalServerError)):
+        return True
+    if type(exc) is TwelveDataError:
+        message = str(exc).lower()
+        return any(marker in message for marker in TWELVE_DATA_RATE_LIMIT_MARKERS)
+    return False
 
 
 def main() -> None:
@@ -145,6 +195,7 @@ def main() -> None:
         print("Firebase konnte nicht initialisiert werden:", exc)
         sys.exit(1)
 
+    failed_firebase_symbols: list[str] = []
     for symbol in SYMBOLS:
         print(f"Abruf der Kursdaten für {symbol} von {start_date} bis {end_date}...")
         try:
@@ -166,7 +217,18 @@ def main() -> None:
             continue
 
         _store_locally(symbol, date_str, response)
-        _store_in_firebase(symbol, date_str, response)
+        try:
+            _store_in_firebase(symbol, date_str, response)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"Firebase-Speicherung für {symbol} fehlgeschlagen:", exc)
+            failed_firebase_symbols.append(symbol)
+
+    if failed_firebase_symbols:
+        print(
+            "Firebase-Speicherung fehlgeschlagen für: "
+            + ", ".join(failed_firebase_symbols)
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
