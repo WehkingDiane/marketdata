@@ -195,6 +195,7 @@ def main() -> None:
         print("Firebase konnte nicht initialisiert werden:", exc)
         sys.exit(1)
 
+    failed_firebase_symbols: list[str] = []
     for symbol in SYMBOLS:
         print(f"Abruf der Kursdaten für {symbol} von {start_date} bis {end_date}...")
         try:
@@ -220,6 +221,14 @@ def main() -> None:
             _store_in_firebase(symbol, date_str, response)
         except Exception as exc:  # pragma: no cover - defensive logging
             print(f"Firebase-Speicherung für {symbol} fehlgeschlagen:", exc)
+            failed_firebase_symbols.append(symbol)
+
+    if failed_firebase_symbols:
+        print(
+            "Firebase-Speicherung fehlgeschlagen für: "
+            + ", ".join(failed_firebase_symbols)
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

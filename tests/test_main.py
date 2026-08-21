@@ -251,7 +251,7 @@ class MarketDataTests(unittest.TestCase):
     @patch("main._store_locally")
     @patch("main._initialize_firebase")
     @patch("main.TDClient")
-    def test_main_fetches_and_stores_every_symbol(
+    def test_main_continues_after_firebase_failure_and_exits_nonzero(
         self,
         td_client: MagicMock,
         initialize_firebase: MagicMock,
@@ -266,8 +266,10 @@ class MarketDataTests(unittest.TestCase):
         with patch.dict(os.environ, {"TWELVE_API_KEY": "test-key"}, clear=True):
             with patch("main.datetime") as mocked_datetime:
                 mocked_datetime.now.return_value = fixed_now
-                main.main()
+                with self.assertRaises(SystemExit) as context:
+                    main.main()
 
+        self.assertEqual(context.exception.code, 1)
         td_client.assert_called_once_with(apikey="test-key")
         initialize_firebase.assert_called_once_with()
         self.assertEqual(td_client.return_value.time_series.call_count, len(main.SYMBOLS))
