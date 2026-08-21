@@ -36,6 +36,12 @@ class MarketDataTests(unittest.TestCase):
             with self.subTest(now=now):
                 self.assertFalse(main._within_trading_window(now))
 
+    def test_trading_window_rejects_nyse_holiday(self) -> None:
+        good_friday = datetime(2026, 4, 3, 12, 0, tzinfo=main.NY_TZ)
+
+        self.assertFalse(main._within_trading_window(good_friday))
+        self.assertIn("Good Friday", main.NYSE_HOLIDAYS[good_friday.date()])
+
     def test_normalize_response_extracts_values(self) -> None:
         values = [{"close": "100.00"}]
 

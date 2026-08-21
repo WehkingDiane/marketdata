@@ -13,6 +13,7 @@ Stand: 21. August 2026
 | Python | 3.11 | 3.12.3 |
 | `twelvedata` | nicht separat geprüft | 1.4.0 |
 | `firebase-admin` | nicht separat geprüft | 7.5.0 |
+| `holidays` | nicht separat geprüft | 0.103 |
 | `requests` | nicht separat geprüft | 2.34.2 |
 | `zoneinfo` | Python-Standardbibliothek | Python-Standardbibliothek |
 | `tzdata` | nicht separat geprüft | 2026.3 |

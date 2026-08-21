@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, Sequence
 from zoneinfo import ZoneInfo
 
 import firebase_admin
+from holidays import financial_holidays
 from firebase_admin import credentials, db, exceptions as firebase_exceptions
 from requests.exceptions import RequestException
 from twelvedata import TDClient
@@ -20,6 +21,7 @@ from twelvedata.exceptions import (
 
 SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
 NY_TZ = ZoneInfo("America/New_York")
+NYSE_HOLIDAYS = financial_holidays("XNYS")
 MARKET_OPEN_MINUTE = 9 * 60 + 45
 MARKET_CLOSE_MINUTE = 15 * 60 + 45
 MAX_RETRY_ATTEMPTS = 3
@@ -54,6 +56,11 @@ def _within_trading_window(now: datetime) -> bool:
 
     if now.weekday() >= 5:
         print("Heute ist Wochenende. Abbruch.")
+        return False
+
+    if not NYSE_HOLIDAYS.is_working_day(now.date()):
+        holiday_name = NYSE_HOLIDAYS.get(now.date(), "NYSE-Börsenfeiertag")
+        print(f"NYSE geschlossen ({holiday_name}). Abbruch.")
         return False
 
     total_minutes = now.hour * 60 + now.minute

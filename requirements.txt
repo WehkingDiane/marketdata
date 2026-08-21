@@ -1,4 +1,5 @@
 twelvedata
 firebase-admin
+holidays
 requests
 tzdata
