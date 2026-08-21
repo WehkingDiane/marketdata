@@ -8,6 +8,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, call, patch
 
 import pytz
+from firebase_admin import exceptions as firebase_exceptions
 from twelvedata.exceptions import InvalidApiKeyError
 
 import main
@@ -118,6 +119,38 @@ class MarketDataTests(unittest.TestCase):
         reference.return_value.set.assert_called_once_with(payload)
 
     @patch("main.time.sleep")
+    @patch("main.db.reference")
+    def test_store_in_firebase_retries_temporary_errors(
+        self, reference: MagicMock, sleep: MagicMock
+    ) -> None:
+        payload = {"status": "ok", "values": [{"close": "100.00"}]}
+        reference.return_value.set.side_effect = (
+            firebase_exceptions.UnavailableError("temporary"),
+            firebase_exceptions.InternalError("temporary"),
+            None,
+        )
+
+        main._store_in_firebase("NVDA", "20260821_1545", payload)
+
+        self.assertEqual(reference.return_value.set.call_count, 3)
+        self.assertEqual(sleep.call_args_list, [call(2), call(4)])
+
+    @patch("main.time.sleep")
+    @patch("main.db.reference")
+    def test_store_in_firebase_does_not_retry_permission_error(
+        self, reference: MagicMock, sleep: MagicMock
+    ) -> None:
+        reference.return_value.set.side_effect = (
+            firebase_exceptions.PermissionDeniedError("denied")
+        )
+
+        with self.assertRaises(firebase_exceptions.PermissionDeniedError):
+            main._store_in_firebase("NVDA", "20260821_1545", {"status": "ok"})
+
+        reference.return_value.set.assert_called_once_with({"status": "ok"})
+        sleep.assert_not_called()
+
+    @patch("main.time.sleep")
     def test_fetch_time_series_retries_temporary_errors(self, sleep: MagicMock) -> None:
         td_client = MagicMock()
         payload = [{"close": "100.00"}]
@@ -169,6 +202,7 @@ class MarketDataTests(unittest.TestCase):
     ) -> None:
         payload = {"status": "ok", "values": [{"close": "100.00"}]}
         td_client.return_value.time_series.return_value.as_json.return_value = payload
+        store_in_firebase.side_effect = (RuntimeError("write failed"), None, None, None)
         fixed_now = main.NY_TZ.localize(datetime(2026, 8, 21, 12, 0))
 
         with patch.dict(os.environ, {"TWELVE_API_KEY": "test-key"}, clear=True):

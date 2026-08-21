@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, Sequence
 
 import firebase_admin
 import pytz
-from firebase_admin import credentials, db
+from firebase_admin import credentials, db, exceptions as firebase_exceptions
 from twelvedata import TDClient
 from twelvedata.exceptions import BadRequestError, InvalidApiKeyError
 
@@ -18,8 +18,15 @@ SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
 NY_TZ = pytz.timezone("America/New_York")
 MARKET_OPEN_MINUTE = 9 * 60 + 45
 MARKET_CLOSE_MINUTE = 15 * 60 + 45
-MAX_FETCH_ATTEMPTS = 3
+MAX_RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 2
+FIREBASE_TRANSIENT_ERRORS = (
+    firebase_exceptions.DeadlineExceededError,
+    firebase_exceptions.InternalError,
+    firebase_exceptions.ResourceExhaustedError,
+    firebase_exceptions.UnavailableError,
+    firebase_exceptions.UnknownError,
+)
 
 
 def _require_env_var(name: str) -> str:
@@ -92,8 +99,22 @@ def _store_locally(symbol: str, date_str: str, payload: Any) -> None:
 
 def _store_in_firebase(symbol: str, date_str: str, payload: Any) -> None:
     ref = db.reference(f"/marketdata/{symbol}/{date_str}")
-    ref.set(payload)
-    print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
+
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        try:
+            ref.set(payload)
+            print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
+            return
+        except FIREBASE_TRANSIENT_ERRORS as exc:
+            if attempt == MAX_RETRY_ATTEMPTS:
+                raise
+
+            delay = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(
+                f"Temporärer Firebase-Fehler für {symbol}; neuer Versuch in "
+                f"{delay} Sekunden ({attempt + 1}/{MAX_RETRY_ATTEMPTS}): {exc}"
+            )
+            time.sleep(delay)
 
 
 def _fetch_time_series(
@@ -101,7 +122,7 @@ def _fetch_time_series(
 ) -> Any:
     """Ruft Kursdaten ab und wiederholt ausschließlich potenziell temporäre Fehler."""
 
-    for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
         try:
             return td.time_series(
                 symbol=symbol,
@@ -113,13 +134,13 @@ def _fetch_time_series(
         except (BadRequestError, InvalidApiKeyError):
             raise
         except Exception as exc:
-            if attempt == MAX_FETCH_ATTEMPTS:
+            if attempt == MAX_RETRY_ATTEMPTS:
                 raise
 
             delay = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
             print(
                 f"Temporärer Fehler für {symbol}; neuer Versuch in {delay} "
-                f"Sekunden ({attempt + 1}/{MAX_FETCH_ATTEMPTS}): {exc}"
+                f"Sekunden ({attempt + 1}/{MAX_RETRY_ATTEMPTS}): {exc}"
             )
             time.sleep(delay)
 
@@ -166,7 +187,10 @@ def main() -> None:
             continue
 
         _store_locally(symbol, date_str, response)
-        _store_in_firebase(symbol, date_str, response)
+        try:
+            _store_in_firebase(symbol, date_str, response)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"Firebase-Speicherung für {symbol} fehlgeschlagen:", exc)
 
 
 if __name__ == "__main__":
