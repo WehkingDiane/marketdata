@@ -6,9 +6,9 @@ import sys
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, Sequence
+from zoneinfo import ZoneInfo
 
 import firebase_admin
-import pytz
 from firebase_admin import credentials, db, exceptions as firebase_exceptions
 from requests.exceptions import RequestException
 from twelvedata import TDClient
@@ -19,7 +19,7 @@ from twelvedata.exceptions import (
 
 
 SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
-NY_TZ = pytz.timezone("America/New_York")
+NY_TZ = ZoneInfo("America/New_York")
 MARKET_OPEN_MINUTE = 9 * 60 + 45
 MARKET_CLOSE_MINUTE = 15 * 60 + 45
 MAX_RETRY_ATTEMPTS = 3

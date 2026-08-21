@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, call, patch
+from zoneinfo import ZoneInfo
 
-import pytz
 from firebase_admin import exceptions as firebase_exceptions
 from requests.exceptions import Timeout
 from twelvedata.exceptions import InternalServerError, InvalidApiKeyError, TwelveDataError
@@ -17,19 +17,19 @@ import main
 
 class MarketDataTests(unittest.TestCase):
     def test_trading_window_accepts_boundaries(self) -> None:
-        timezone = pytz.timezone("America/New_York")
+        timezone = ZoneInfo("America/New_York")
 
         for hour, minute in ((9, 45), (15, 45)):
             with self.subTest(hour=hour, minute=minute):
-                now = timezone.localize(datetime(2026, 8, 21, hour, minute))
+                now = datetime(2026, 8, 21, hour, minute, tzinfo=timezone)
                 self.assertTrue(main._within_trading_window(now))
 
     def test_trading_window_rejects_weekend_and_outside_hours(self) -> None:
-        timezone = pytz.timezone("America/New_York")
+        timezone = ZoneInfo("America/New_York")
         examples = (
-            timezone.localize(datetime(2026, 8, 22, 12, 0)),
-            timezone.localize(datetime(2026, 8, 21, 9, 44)),
-            timezone.localize(datetime(2026, 8, 21, 15, 46)),
+            datetime(2026, 8, 22, 12, 0, tzinfo=timezone),
+            datetime(2026, 8, 21, 9, 44, tzinfo=timezone),
+            datetime(2026, 8, 21, 15, 46, tzinfo=timezone),
         )
 
         for now in examples:
@@ -237,7 +237,7 @@ class MarketDataTests(unittest.TestCase):
         payload = {"status": "ok", "values": [{"close": "100.00"}]}
         td_client.return_value.time_series.return_value.as_json.return_value = payload
         store_in_firebase.side_effect = (RuntimeError("write failed"), None, None, None)
-        fixed_now = main.NY_TZ.localize(datetime(2026, 8, 21, 12, 0))
+        fixed_now = datetime(2026, 8, 21, 12, 0, tzinfo=main.NY_TZ)
 
         with patch.dict(os.environ, {"TWELVE_API_KEY": "test-key"}, clear=True):
             with patch("main.datetime") as mocked_datetime:
