@@ -5,6 +5,13 @@ on:
     - cron: '*/15 12-21 * * 1-5'  # Alle 15 Minuten, Montag bis Freitag
   workflow_dispatch:          # Manuelles Starten über GitHub UI
 
+permissions:
+  contents: read
+
+concurrency:
+  group: market-data-fetch
+  cancel-in-progress: false
+
 jobs:
   fetch-and-store:
     runs-on: ubuntu-latest
@@ -35,3 +42,4 @@ jobs:
         with:
           name: marketdata-json
           path: '*.json'
+          if-no-files-found: ignore
