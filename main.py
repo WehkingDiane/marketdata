@@ -32,6 +32,7 @@ FIREBASE_TRANSIENT_ERRORS = (
     firebase_exceptions.ResourceExhaustedError,
     firebase_exceptions.UnavailableError,
     firebase_exceptions.UnknownError,
+    RequestException,
 )
 TWELVE_DATA_RATE_LIMIT_MARKERS = (
     "429",

@@ -149,6 +149,19 @@ class MarketDataTests(unittest.TestCase):
 
     @patch("main.time.sleep")
     @patch("main.db.reference")
+    def test_store_in_firebase_retries_transport_errors(
+        self, reference: MagicMock, sleep: MagicMock
+    ) -> None:
+        payload = {"status": "ok", "values": [{"close": "100.00"}]}
+        reference.return_value.set.side_effect = (Timeout("temporary"), None)
+
+        main._store_in_firebase("NVDA", "20260821_1545", payload)
+
+        self.assertEqual(reference.return_value.set.call_count, 2)
+        sleep.assert_called_once_with(2)
+
+    @patch("main.time.sleep")
+    @patch("main.db.reference")
     def test_store_in_firebase_does_not_retry_permission_error(
         self, reference: MagicMock, sleep: MagicMock
     ) -> None:
