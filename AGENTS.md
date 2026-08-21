@@ -22,7 +22,7 @@ Follow standard PEP 8 conventions: four-space indentation, `snake_case` function
 
 ## Testing Guidelines
 
-No automated test suite or coverage threshold is currently configured. For new behavior, add `pytest` tests under `tests/`, using files named `test_<feature>.py` and functions named `test_<behavior>()`. Mock Twelve Data, Firebase, time, and environment variables; tests must not call live services or require real credentials. Run tests with `python -m pytest` after adding `pytest` as a development dependency.
+Tests use the standard-library `unittest` framework under `tests/`, with files named `test_<feature>.py` and methods named `test_<behavior>()`. Mock Twelve Data, Firebase, time, and environment variables; tests must not call live services or require real credentials. Run the suite with `python -m unittest discover -s tests -v`. No coverage threshold is currently configured.
 
 ## Commit & Pull Request Guidelines
 

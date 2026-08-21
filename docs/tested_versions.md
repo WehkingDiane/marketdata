@@ -15,10 +15,11 @@ Stand: 21. August 2026
 | `firebase-admin` | nicht separat geprüft | 7.5.0 |
 | `pytz` | nicht separat geprüft | 2026.3.post1 |
 
-Lokal wurden alle drei Pakete aus `requirements.txt` importiert und `main.py`
-mit `python -m compileall -q main.py` geprüft. Live-Aufrufe gegen Twelve Data
-und Firebase gehören nicht zu diesem Kompatibilitätstest, damit keine API-
-Credits oder produktiven Daten verändert werden.
+Lokal wurden alle drei Pakete aus `requirements.txt` importiert, die Unit-Tests
+mit `python -m unittest discover -s tests -v` ausgeführt und `main.py` mit
+`python -m compileall -q main.py` geprüft. Live-Aufrufe gegen Twelve Data und
+Firebase gehören nicht zu diesem Kompatibilitätstest, damit keine API-Credits
+oder produktiven Daten verändert werden.
 
 ## Aktualisierung
 
