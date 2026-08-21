@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, Sequence
 
@@ -10,12 +11,15 @@ import firebase_admin
 import pytz
 from firebase_admin import credentials, db
 from twelvedata import TDClient
+from twelvedata.exceptions import BadRequestError, InvalidApiKeyError
 
 
 SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
 NY_TZ = pytz.timezone("America/New_York")
 MARKET_OPEN_MINUTE = 9 * 60 + 45
 MARKET_CLOSE_MINUTE = 15 * 60 + 45
+MAX_FETCH_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 2
 
 
 def _require_env_var(name: str) -> str:
@@ -92,6 +96,36 @@ def _store_in_firebase(symbol: str, date_str: str, payload: Any) -> None:
     print(f"Kursdaten für {symbol} wurden in Firebase gespeichert.")
 
 
+def _fetch_time_series(
+    td: TDClient, symbol: str, start_date: str, end_date: str
+) -> Any:
+    """Ruft Kursdaten ab und wiederholt ausschließlich potenziell temporäre Fehler."""
+
+    for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
+        try:
+            return td.time_series(
+                symbol=symbol,
+                interval="1min",
+                start_date=start_date,
+                end_date=end_date,
+                timezone="America/New_York",
+            ).as_json()
+        except (BadRequestError, InvalidApiKeyError):
+            raise
+        except Exception as exc:
+            if attempt == MAX_FETCH_ATTEMPTS:
+                raise
+
+            delay = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(
+                f"Temporärer Fehler für {symbol}; neuer Versuch in {delay} "
+                f"Sekunden ({attempt + 1}/{MAX_FETCH_ATTEMPTS}): {exc}"
+            )
+            time.sleep(delay)
+
+    raise RuntimeError("Unerreichbarer Zustand beim Abruf der Kursdaten")
+
+
 def main() -> None:
     now_ny = datetime.now(NY_TZ).replace(second=0, microsecond=0)
     date_str = now_ny.strftime("%Y%m%d_%H%M")
@@ -114,13 +148,7 @@ def main() -> None:
     for symbol in SYMBOLS:
         print(f"Abruf der Kursdaten für {symbol} von {start_date} bis {end_date}...")
         try:
-            response = td.time_series(
-                symbol=symbol,
-                interval="1min",
-                start_date=start_date,
-                end_date=end_date,
-                timezone="America/New_York",
-            ).as_json()
+            response = _fetch_time_series(td, symbol, start_date, end_date)
         except Exception as exc:  # pragma: no cover - defensive logging
             print(f"Fehler beim Abruf der Kursdaten für {symbol}:", exc)
             continue

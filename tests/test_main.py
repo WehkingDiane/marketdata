@@ -8,6 +8,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, call, patch
 
 import pytz
+from twelvedata.exceptions import InvalidApiKeyError
 
 import main
 
@@ -115,6 +116,45 @@ class MarketDataTests(unittest.TestCase):
 
         reference.assert_called_once_with("/marketdata/NVDA/20260821_1545")
         reference.return_value.set.assert_called_once_with(payload)
+
+    @patch("main.time.sleep")
+    def test_fetch_time_series_retries_temporary_errors(self, sleep: MagicMock) -> None:
+        td_client = MagicMock()
+        payload = [{"close": "100.00"}]
+        td_client.time_series.return_value.as_json.side_effect = (
+            RuntimeError("temporary"),
+            RuntimeError("temporary"),
+            payload,
+        )
+
+        response = main._fetch_time_series(
+            td_client, "NVDA", "2026-08-21 11:43:00", "2026-08-21 12:00:00"
+        )
+
+        self.assertEqual(response, payload)
+        self.assertEqual(td_client.time_series.call_count, 3)
+        self.assertEqual(sleep.call_args_list, [call(2), call(4)])
+
+    @patch("main.time.sleep")
+    def test_fetch_time_series_does_not_retry_invalid_key(self, sleep: MagicMock) -> None:
+        td_client = MagicMock()
+        td_client.time_series.return_value.as_json.side_effect = InvalidApiKeyError(
+            "invalid key"
+        )
+
+        with self.assertRaises(InvalidApiKeyError):
+            main._fetch_time_series(
+                td_client, "NVDA", "2026-08-21 11:43:00", "2026-08-21 12:00:00"
+            )
+
+        td_client.time_series.assert_called_once_with(
+            symbol="NVDA",
+            interval="1min",
+            start_date="2026-08-21 11:43:00",
+            end_date="2026-08-21 12:00:00",
+            timezone="America/New_York",
+        )
+        sleep.assert_not_called()
 
     @patch("main._store_in_firebase")
     @patch("main._store_locally")
