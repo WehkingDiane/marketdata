@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Generated market-data exports
+*_20??????_????.json
+
 # C extensions
 *.so
 
@@ -130,6 +133,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-wsl/
 env/
 venv/
 ENV/

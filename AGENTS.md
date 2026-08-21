@@ -9,10 +9,12 @@ This repository is a small Python 3.11 market-data ingestion service. `main.py` 
 Create and activate a virtual environment, then install dependencies:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m venv .venv-wsl
+source .venv-wsl/bin/activate
 python -m pip install -r requirements.txt
 ```
+
+On Windows, use the separate `.venv` environment and activate it with `.venv\Scripts\Activate.ps1`.
 
 Run the downloader with `python main.py`. It requires `TWELVE_API_KEY`, `FIREBASE_KEY`, and `FIREBASE_DB_URL`; never hard-code these values. The script exits normally outside its 09:45–15:45 New York weekday window. Use `python -m compileall main.py` for a quick syntax check. There is currently no separate build step.
 
