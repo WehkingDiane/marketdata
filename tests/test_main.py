@@ -16,6 +16,11 @@ import main
 
 
 class MarketDataTests(unittest.TestCase):
+    def setUp(self) -> None:
+        print_patcher = patch("builtins.print")
+        print_patcher.start()
+        self.addCleanup(print_patcher.stop)
+
     def test_trading_window_accepts_boundaries(self) -> None:
         timezone = ZoneInfo("America/New_York")
 
