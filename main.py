@@ -115,6 +115,7 @@ def main() -> None:
                 interval="1min",
                 start_date=start_date,
                 end_date=end_date,
+                timezone="America/New_York",
             ).as_json()
         except Exception as exc:  # pragma: no cover - defensive logging
             print(f"Fehler beim Abruf der Kursdaten für {symbol}:", exc)

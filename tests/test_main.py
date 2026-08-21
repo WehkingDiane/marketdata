@@ -109,6 +109,7 @@ class MarketDataTests(unittest.TestCase):
                     interval="1min",
                     start_date="2026-08-21 11:43:00",
                     end_date="2026-08-21 12:00:00",
+                    timezone="America/New_York",
                 )
                 for symbol in main.SYMBOLS
             ],
