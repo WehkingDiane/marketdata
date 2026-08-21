@@ -9,7 +9,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytz
 from firebase_admin import exceptions as firebase_exceptions
-from twelvedata.exceptions import InvalidApiKeyError
+from requests.exceptions import Timeout
+from twelvedata.exceptions import InternalServerError, InvalidApiKeyError, TwelveDataError
 
 import main
 
@@ -155,8 +156,8 @@ class MarketDataTests(unittest.TestCase):
         td_client = MagicMock()
         payload = [{"close": "100.00"}]
         td_client.time_series.return_value.as_json.side_effect = (
-            RuntimeError("temporary"),
-            RuntimeError("temporary"),
+            InternalServerError("temporary"),
+            Timeout("temporary"),
             payload,
         )
 
@@ -187,6 +188,39 @@ class MarketDataTests(unittest.TestCase):
             end_date="2026-08-21 12:00:00",
             timezone="America/New_York",
         )
+        sleep.assert_not_called()
+
+    @patch("main.time.sleep")
+    def test_fetch_time_series_retries_rate_limit(self, sleep: MagicMock) -> None:
+        td_client = MagicMock()
+        payload = [{"close": "100.00"}]
+        td_client.time_series.return_value.as_json.side_effect = (
+            TwelveDataError("429 Too Many Requests"),
+            payload,
+        )
+
+        response = main._fetch_time_series(
+            td_client, "NVDA", "2026-08-21 11:43:00", "2026-08-21 12:00:00"
+        )
+
+        self.assertEqual(response, payload)
+        sleep.assert_called_once_with(2)
+
+    @patch("main.time.sleep")
+    def test_fetch_time_series_does_not_retry_unexpected_error(
+        self, sleep: MagicMock
+    ) -> None:
+        td_client = MagicMock()
+        td_client.time_series.return_value.as_json.side_effect = RuntimeError(
+            "programming error"
+        )
+
+        with self.assertRaises(RuntimeError):
+            main._fetch_time_series(
+                td_client, "NVDA", "2026-08-21 11:43:00", "2026-08-21 12:00:00"
+            )
+
+        td_client.time_series.assert_called_once()
         sleep.assert_not_called()
 
     @patch("main._store_in_firebase")

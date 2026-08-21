@@ -10,8 +10,12 @@ from typing import Any, Dict, Iterable, Sequence
 import firebase_admin
 import pytz
 from firebase_admin import credentials, db, exceptions as firebase_exceptions
+from requests.exceptions import RequestException
 from twelvedata import TDClient
-from twelvedata.exceptions import BadRequestError, InvalidApiKeyError
+from twelvedata.exceptions import (
+    InternalServerError,
+    TwelveDataError,
+)
 
 
 SYMBOLS: Sequence[str] = ("NVDA", "TSM", "WMT", "AMZN")
@@ -26,6 +30,12 @@ FIREBASE_TRANSIENT_ERRORS = (
     firebase_exceptions.ResourceExhaustedError,
     firebase_exceptions.UnavailableError,
     firebase_exceptions.UnknownError,
+)
+TWELVE_DATA_RATE_LIMIT_MARKERS = (
+    "429",
+    "api credits",
+    "rate limit",
+    "too many requests",
 )
 
 
@@ -131,9 +141,9 @@ def _fetch_time_series(
                 end_date=end_date,
                 timezone="America/New_York",
             ).as_json()
-        except (BadRequestError, InvalidApiKeyError):
-            raise
         except Exception as exc:
+            if not _is_transient_twelve_data_error(exc):
+                raise
             if attempt == MAX_RETRY_ATTEMPTS:
                 raise
 
@@ -145,6 +155,17 @@ def _fetch_time_series(
             time.sleep(delay)
 
     raise RuntimeError("Unerreichbarer Zustand beim Abruf der Kursdaten")
+
+
+def _is_transient_twelve_data_error(exc: Exception) -> bool:
+    """Erkennt Netzwerk-, Server- und Rate-Limit-Fehler von Twelve Data."""
+
+    if isinstance(exc, (RequestException, InternalServerError)):
+        return True
+    if type(exc) is TwelveDataError:
+        message = str(exc).lower()
+        return any(marker in message for marker in TWELVE_DATA_RATE_LIMIT_MARKERS)
+    return False
 
 
 def main() -> None:

@@ -1,3 +1,4 @@
 twelvedata
 firebase-admin
 pytz
+requests

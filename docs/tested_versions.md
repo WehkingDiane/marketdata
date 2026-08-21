@@ -14,6 +14,7 @@ Stand: 21. August 2026
 | `twelvedata` | nicht separat geprüft | 1.4.0 |
 | `firebase-admin` | nicht separat geprüft | 7.5.0 |
 | `pytz` | nicht separat geprüft | 2026.3.post1 |
+| `requests` | nicht separat geprüft | 2.34.2 |
 
 ### Ausführungsumgebung
 
