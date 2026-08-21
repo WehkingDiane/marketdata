@@ -51,6 +51,44 @@ class MarketDataTests(unittest.TestCase):
 
         self.assertEqual(context.exception.code, 1)
 
+    @patch("main._require_env_var")
+    @patch("main.firebase_admin.get_app")
+    def test_initialize_firebase_reuses_existing_app(
+        self, get_app: MagicMock, require_env_var: MagicMock
+    ) -> None:
+        main._initialize_firebase()
+
+        get_app.assert_called_once_with()
+        require_env_var.assert_not_called()
+
+    @patch("main.firebase_admin.initialize_app")
+    @patch("main.credentials.Certificate")
+    @patch("main.firebase_admin.get_app", side_effect=ValueError)
+    def test_initialize_firebase_creates_missing_app(
+        self,
+        get_app: MagicMock,
+        certificate: MagicMock,
+        initialize_app: MagicMock,
+    ) -> None:
+        firebase_key = {"type": "service_account", "project_id": "test"}
+
+        with patch.dict(
+            os.environ,
+            {
+                "FIREBASE_KEY": json.dumps(firebase_key),
+                "FIREBASE_DB_URL": "https://example.firebaseio.com",
+            },
+            clear=True,
+        ):
+            main._initialize_firebase()
+
+        get_app.assert_called_once_with()
+        certificate.assert_called_once_with(firebase_key)
+        initialize_app.assert_called_once_with(
+            certificate.return_value,
+            {"databaseURL": "https://example.firebaseio.com"},
+        )
+
     def test_store_locally_writes_json(self) -> None:
         payload = {"status": "ok", "values": [{"close": "100.00"}]}
 

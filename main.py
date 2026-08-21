@@ -67,12 +67,16 @@ def _normalize_response(response: Any) -> Iterable[Dict[str, Any]]:
 def _initialize_firebase() -> None:
     """Initialisiert den Firebase-Client genau einmal."""
 
+    try:
+        firebase_admin.get_app()
+        return
+    except ValueError:
+        pass
+
     firebase_key = json.loads(_require_env_var("FIREBASE_KEY"))
     firebase_url = _require_env_var("FIREBASE_DB_URL")
-
-    if not firebase_admin._apps:  # type: ignore[attr-defined]
-        cred = credentials.Certificate(firebase_key)
-        firebase_admin.initialize_app(cred, {"databaseURL": firebase_url})
+    cred = credentials.Certificate(firebase_key)
+    firebase_admin.initialize_app(cred, {"databaseURL": firebase_url})
 
 
 def _store_locally(symbol: str, date_str: str, payload: Any) -> None:
