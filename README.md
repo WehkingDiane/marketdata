@@ -36,7 +36,7 @@ Die Abhängigkeiten bleiben absichtlich ohne feste Versionsnummern. Der zuletzt 
 python main.py
 ```
 
-Das Skript arbeitet an regulären NYSE-Handelstagen zwischen 09:45 und 15:45 Uhr New Yorker Zeit; Wochenenden und vollständige NYSE-Börsenfeiertage werden übersprungen. Twelve-Data-Anfragen verwenden ausdrücklich `America/New_York`. Temporäre Abruf- und Firebase-Schreibfehler werden maximal zweimal mit 2 beziehungsweise 4 Sekunden Wartezeit wiederholt; ungültige Parameter, API-Schlüssel oder Firebase-Berechtigungen werden nicht erneut versucht. Ein endgültiger Schreibfehler verhindert nicht die Verarbeitung der übrigen Symbole. Erfolgreiche Antworten werden als `<SYMBOL>_<YYYYMMDD_HHMM>.json` gespeichert und nach `/marketdata/<SYMBOL>/<ZEITSTEMPEL>` in Firebase geschrieben.
+Das Skript arbeitet an regulären NYSE-Handelstagen zwischen 09:45 und 15:45 Uhr New Yorker Zeit; Wochenenden und vollständige NYSE-Börsenfeiertage werden übersprungen. Twelve-Data-Anfragen verwenden ausdrücklich `America/New_York`. Temporäre Abruf- und Firebase-Schreibfehler werden maximal zweimal mit 2 beziehungsweise 4 Sekunden Wartezeit wiederholt; ungültige Parameter, API-Schlüssel oder Firebase-Berechtigungen werden nicht erneut versucht. Ein endgültiger Schreibfehler verhindert nicht die Verarbeitung der übrigen Symbole, beendet den Lauf danach aber mit Status 1, damit GitHub Actions den Ausfall meldet. Erfolgreiche Antworten werden als `<SYMBOL>_<YYYYMMDD_HHMM>.json` gespeichert und nach `/marketdata/<SYMBOL>/<ZEITSTEMPEL>` in Firebase geschrieben.
 
 Der GitHub-Workflow in [`.github/workflows/main.yml`](./.github/workflows/main.yml) startet den Abruf werktags alle 15 Minuten und stellt erzeugte JSON-Dateien als Workflow-Artefakt bereit.
 
